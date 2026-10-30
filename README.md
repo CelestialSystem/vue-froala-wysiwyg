@@ -38,7 +38,7 @@ import 'froala-editor/js/third_party/image_tui.min';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/css/froala_style.min.css';
 
-import App from './App'
+import App from './App.vue'
 import { createApp } from 'vue'
 import VueFroala from 'vue-froala-wysiwyg';
 
@@ -75,6 +75,18 @@ export default {
 }
 </script>
 ```
+
+#### Vite 8
+
+In a Vite 8 project whose `package.json` has `"type": "module"` (the `npm create vite` default), `import VueFroala from 'vue-froala-wysiwyg'` gives you a wrapper object instead of the plugin. Vue warns that a plugin must have an `install` function, the `froala` component is never registered, and the page shows an empty `<froala>` tag. Vite 7 isn't affected. Until this is fixed in the package, import the plugin like this in `main.js`:
+
+```javascript
+import * as VueFroalaModule from 'vue-froala-wysiwyg';
+
+const VueFroala = VueFroalaModule.default?.default ?? VueFroalaModule.default;
+```
+
+This works on older Vite versions too, so you can keep it after upgrading.
 
 
 
@@ -295,6 +307,52 @@ To display content created with the froala editor use the `froalaView` component
 
 <froalaView v-model:value="content"></froalaView>
 ```
+
+
+
+## Usage with Nuxt
+
+The editor needs a browser. If you register it in a regular Nuxt plugin, the page fails on the server with `window is not defined`. Register it in a client-only plugin and render it inside `<ClientOnly>`.
+
+#### plugins/froala.client.js file:
+```javascript
+import 'froala-editor/js/plugins.pkgd.min.js';
+import 'froala-editor/css/froala_editor.pkgd.min.css';
+import 'froala-editor/css/froala_style.min.css';
+import * as VueFroalaModule from 'vue-froala-wysiwyg';
+
+// Depending on the Nuxt version, the plugin comes wrapped in one more `default`.
+const VueFroala = VueFroalaModule.default?.default ?? VueFroalaModule.default;
+
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.use(VueFroala);
+});
+```
+
+The `.client` suffix makes Nuxt load the plugin only in the browser. Import any third-party plugins and languages here too.
+
+Pick `VueFroala` out of the module as shown. In Nuxt 4, `import VueFroala from 'vue-froala-wysiwyg'` gives you a wrapper object rather than the plugin, so the `froala` component is never registered and the page shows an empty `<froala>` tag.
+
+#### pages/index.vue file:
+```javascript
+<template>
+  <ClientOnly>
+    <froala tag="textarea" :config="config" v-model:value="model" />
+    <template #fallback>
+      <p>Loading editor…</p>
+    </template>
+  </ClientOnly>
+</template>
+
+<script setup>
+const config = { placeholderText: 'Start writing…' };
+const model = ref('<p>Hello</p>');
+</script>
+```
+
+Without `<ClientOnly>` the editor still shows up, but Vue reports a hydration mismatch, because the server doesn't know the `froala` component. Wrap `froalaView` the same way.
+
+In Nuxt 4, these folders live under `app/` (`app/plugins/`, `app/pages/`).
 
 
 
